@@ -1,12 +1,17 @@
 package nextstep.qna.domain;
 
-import nextstep.users.domain.NsUser;
+import static nextstep.qna.domain.ContentType.QUESTION;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+import nextstep.qna.CannotDeleteException;
+import nextstep.users.domain.NsUser;
 
 public class Question {
+    protected final static String DELETE_QUESTION_EXCEPTION = "질문을 삭제할 권한이 없습니다.";
+
     private Long id;
 
     private String title;
@@ -15,7 +20,7 @@ public class Question {
 
     private NsUser writer;
 
-    private List<Answer> answers = new ArrayList<>();
+    private Answers answers = new Answers();
 
     private boolean deleted = false;
 
@@ -41,24 +46,6 @@ public class Question {
         return id;
     }
 
-    public String getTitle() {
-        return title;
-    }
-
-    public Question setTitle(String title) {
-        this.title = title;
-        return this;
-    }
-
-    public String getContents() {
-        return contents;
-    }
-
-    public Question setContents(String contents) {
-        this.contents = contents;
-        return this;
-    }
-
     public NsUser getWriter() {
         return writer;
     }
@@ -72,17 +59,35 @@ public class Question {
         return writer.equals(loginUser);
     }
 
-    public Question setDeleted(boolean deleted) {
-        this.deleted = deleted;
-        return this;
-    }
-
     public boolean isDeleted() {
         return deleted;
     }
 
-    public List<Answer> getAnswers() {
-        return answers;
+    public void delete(NsUser nsUser) {
+        checkOwner(nsUser);
+        deleteAnswers(nsUser);
+        changeDeleteStatus(true);
+    }
+
+    private void changeDeleteStatus(boolean status) {
+        this.deleted = status;
+    }
+
+    private void deleteAnswers(NsUser nsUser) {
+        answers.deleteAnswers(nsUser);
+    }
+
+    private void checkOwner(NsUser nsUser) {
+        if (!this.isOwner(nsUser)) {
+            throw new CannotDeleteException(DELETE_QUESTION_EXCEPTION);
+        }
+    }
+
+    public List<DeleteHistory> writeDeleteHistory() {
+        List<DeleteHistory> deleteHistories = new ArrayList<>();
+        deleteHistories.add(new DeleteHistory(QUESTION, this.id, this.writer));
+        deleteHistories.addAll(answers.createAnswerDeleteHistory());
+        return deleteHistories;
     }
 
     @Override

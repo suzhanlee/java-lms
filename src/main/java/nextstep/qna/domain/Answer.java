@@ -1,12 +1,16 @@
 package nextstep.qna.domain;
 
+import static nextstep.qna.domain.ContentType.ANSWER;
+
+import java.time.LocalDateTime;
+import nextstep.qna.CannotDeleteException;
 import nextstep.qna.NotFoundException;
 import nextstep.qna.UnAuthorizedException;
 import nextstep.users.domain.NsUser;
 
-import java.time.LocalDateTime;
-
 public class Answer {
+    protected static final String DELETE_ANSWER_EXCEPTION = "다른 사람이 쓴 답변이 있어 삭제할 수 없습니다.";
+
     private Long id;
 
     private NsUser writer;
@@ -30,11 +34,11 @@ public class Answer {
 
     public Answer(Long id, NsUser writer, Question question, String contents) {
         this.id = id;
-        if(writer == null) {
+        if (writer == null) {
             throw new UnAuthorizedException();
         }
 
-        if(question == null) {
+        if (question == null) {
             throw new NotFoundException();
         }
 
@@ -45,11 +49,6 @@ public class Answer {
 
     public Long getId() {
         return id;
-    }
-
-    public Answer setDeleted(boolean deleted) {
-        this.deleted = deleted;
-        return this;
     }
 
     public boolean isDeleted() {
@@ -64,12 +63,27 @@ public class Answer {
         return writer;
     }
 
-    public String getContents() {
-        return contents;
-    }
-
     public void toQuestion(Question question) {
         this.question = question;
+    }
+
+    public void delete(NsUser nsUser) {
+        checkOwner(nsUser);
+        changeStatus(true);
+    }
+
+    private void changeStatus(boolean status) {
+        this.deleted = status;
+    }
+
+    private void checkOwner(NsUser nsUser) {
+        if (!isOwner(nsUser)) {
+            throw new CannotDeleteException(DELETE_ANSWER_EXCEPTION);
+        }
+    }
+
+    public DeleteHistory writeDeleteHistory() {
+        return new DeleteHistory(ANSWER, this.id, this.writer);
     }
 
     @Override
